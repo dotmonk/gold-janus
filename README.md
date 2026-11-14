@@ -89,6 +89,8 @@ startup.
 - an `*Api.ts` file throws while being imported;
 - a parameter type cannot be checked at runtime: functions, class instances such
   as `Date` or `Map`, generic type parameters, `bigint`, unresolved types;
+- a return type (or a stream's value type) would arrive differently after JSON,
+  for the same reasons: return `string` from `toISOString()` instead of a `Date`;
 - two different type declarations share a name, or an API type references an
   enum or class.
 

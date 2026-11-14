@@ -2,6 +2,7 @@ import {
   Node,
   Project,
   SyntaxKind,
+  type FunctionDeclaration,
   type InterfaceDeclaration,
   type ParameterDeclaration,
   type SourceFile,
@@ -223,6 +224,24 @@ function describeParameters(
   });
 }
 
+const WRAPPERS_OF_SENT_VALUE = new Set(["Promise", "AsyncGenerator", "AsyncIterable", "AsyncIterableIterator"]);
+
+/** The value that reaches the client is JSON, so its type must be JSON data, like parameters. */
+function checkSentType(fn: FunctionDeclaration, route: Pick<RouteInfo, "dispatchKey" | "returnTypeText">, problems: string[]): void {
+  let sentType = fn.getReturnType();
+  const wrapper = sentType.getSymbol()?.getName();
+  if (wrapper && WRAPPERS_OF_SENT_VALUE.has(wrapper)) sentType = sentType.getTypeArguments()[0] ?? sentType;
+  try {
+    schemaFromType(sentType, fn);
+  } catch (error: unknown) {
+    if (!(error instanceof UnsupportedTypeError)) throw error;
+    problems.push(
+      `${route.dispatchKey}: sends ${route.returnTypeText}, which arrives differently after JSON ` +
+        `(${error.message}); return JSON data types`
+    );
+  }
+}
+
 export interface DiscoveredApi {
   backendDir: string;
   routes: RouteInfo[];
@@ -273,6 +292,7 @@ export async function discoverApi(): Promise<DiscoveredApi> {
       const paramInfos = describeParameters({ dispatchKey, isSSE }, fn.getParameters(), types, problems);
 
       const route: RouteInfo = { methodName, namespaceName, paramInfos, returnTypeText, isSSE, sseEventType, dispatchKey };
+      checkSentType(fn, route, problems);
       routes.push(route);
       if (isSSE) sseDispatch.set(dispatchKey, { route, handler: handler as StreamHandlerFn });
       else requestDispatch.set(dispatchKey, { route, handler: handler as RequestHandlerFn });

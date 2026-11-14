@@ -45,3 +45,12 @@ test("types imported into API files are emitted in client.d.ts", async () => {
     await app.close();
   }
 });
+
+test("return and stream types that do not survive JSON fail startup, naming each method", async () => {
+  await assert.rejects(startFixture("unsupported-return"), (error: Error) => {
+    assert.match(error.message, /Clock\.now/);
+    assert.match(error.message, /Clock\.ticks/);
+    assert.doesNotMatch(error.message, /Clock\.fine/);
+    return true;
+  });
+});
