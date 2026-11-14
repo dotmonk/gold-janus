@@ -19,10 +19,13 @@ const DEFAULT_MAX_MULTIPART_FIELD_BYTES = 1024 * 1024;
 const DEFAULT_MAX_JSON_BYTES = 1024 * 1024;
 const DEFAULT_MULTIPART_TMP_DIR = path.join(os.tmpdir(), "gold-uploads");
 const DEFAULT_STREAM_HEARTBEAT_MS = 15_000;
+const DEV_HOST = "127.0.0.1";
 
 export interface GildOptions {
   /** Port to listen on. Default: 3000 */
   port?: number;
+  /** Address to listen on. Default: 127.0.0.1 in `dev`, all interfaces otherwise */
+  host?: string;
   /**
    * Dev mode: mount januse (HMR + janus sync) for `frontend/`, and watch
    * backend Api.ts files then exit(0) for `tsx watch`. Requires `janus-elements`.
@@ -69,22 +72,24 @@ export interface GildOptions {
   streamHeartbeatMs?: number;
 }
 
-function listen(app: Express, port: number, onReady: (server: Server) => void): Promise<Server> {
+function listen(app: Express, port: number, host: string | undefined, onReady: (server: Server) => void): Promise<Server> {
   return new Promise((resolve, reject) => {
-    const server = app.listen(port, (error?: Error) => {
+    const whenListening = (error?: Error) => {
       if (error) {
         reject(error);
         return;
       }
       onReady(server);
       resolve(server);
-    });
+    };
+    const server = host === undefined ? app.listen(port, whenListening) : app.listen(port, host, whenListening);
   });
 }
 
 /** Registers `/gold_*`, writes the client, and resolves to the listening server. */
 export default async function gild(app: Express, options: GildOptions = {}): Promise<Server> {
   const { port = 3000, dev = false, watchBackend = false, authorize, corsOrigins = [] } = options;
+  const host = options.host ?? (dev ? DEV_HOST : undefined);
   checkCorsOrigins(corsOrigins);
   const generatedClientPath = options.generatedClientPath ?? path.resolve(process.cwd(), "frontend/client.js");
   const frontendDir = options.frontendDir ?? path.resolve(process.cwd(), "frontend");
@@ -117,11 +122,11 @@ export default async function gild(app: Express, options: GildOptions = {}): Pro
 
   if (dev) {
     const attachHmr = await mountDevFrontend(app);
-    const server = await listen(app, port, logReady);
+    const server = await listen(app, port, host, logReady);
     attachHmr(server);
     return server;
   }
 
   mountStaticFrontend(app, frontendDir);
-  return listen(app, port, logReady);
+  return listen(app, port, host, logReady);
 }

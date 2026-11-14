@@ -178,7 +178,8 @@ closes immediately). For other waits, such as `fetch` or timers, pass
 
 ## Production
 
-Leave `dev` false (or unset). On startup `gild` syncs janus into
+Leave `dev` false (or unset). Dev mode listens on 127.0.0.1 only; production on
+all interfaces unless `host` says otherwise. On startup `gild` syncs janus into
 `frontend/lib/janus` once and serves `frontendDir` (default `frontend/`).
 No separate build step. Client fetch URLs stay same-origin. `tsx` runs the
 backend at runtime, so list it under `dependencies`, not `devDependencies`.
@@ -198,6 +199,7 @@ own `/gold_*` routes; add `express.json()` yourself for other routes.
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `port` | `number` | `3000` | Listen port |
+| `host` | `string` | `127.0.0.1` in `dev`, else all interfaces | Listen address |
 | `dev` | `boolean` | `false` | Mount januse on `frontend/` + watch backend for `tsx watch` |
 | `watchBackend` | `boolean` | `false` | Watch `backend/**/*.ts` and exit(0); implied by `dev` |
 | `clientBaseUrl` | `string` | `""` | Prefix for generated `fetch` URLs (same-origin by default) |

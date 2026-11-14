@@ -205,6 +205,15 @@ describe("cross-origin clients", () => {
   });
 });
 
+test("the host option limits the listening address", async () => {
+  const app = await startFixture("basic", { host: "127.0.0.1" });
+  try {
+    assert.equal((app.server.address() as { address: string }).address, "127.0.0.1");
+  } finally {
+    await app.close();
+  }
+});
+
 test("corsOrigins entries that are not exact origins fail startup", async () => {
   for (const origin of ["*", "https://app.example.test/", "app.example.test"]) {
     await assert.rejects(startFixture("basic", { corsOrigins: [origin] }), /exact origin/);
