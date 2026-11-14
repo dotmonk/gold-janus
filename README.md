@@ -97,8 +97,8 @@ startup.
 ## Requests, validation and errors
 
 The client sends the method key in an `X-Gold-Method` header. Requests without it
-get 403, so a plain cross-site form post cannot call your API (a custom header
-forces a CORS preflight, which gold-janus does not answer).
+get 403, so a plain cross-site form post cannot call your API: a custom header
+forces a CORS preflight, which gold-janus answers only for `corsOrigins`.
 
 Arguments are checked against the declared TypeScript parameter types before the
 function runs. A mismatch, a missing required argument or a property the type
@@ -124,6 +124,23 @@ Use `authorize` to gate calls and streams, e.g. on a session cookie:
 ```ts
 void gild(app, { authorize: (req, method) => isSignedIn(req) || method === "Auth.signIn" });
 ```
+
+## Frontend on another origin
+
+Serve the API with `corsOrigins` listing the frontend's exact origin, and point
+the client at the API:
+
+```ts
+void gild(app, {
+  corsOrigins: ["https://app.example.com"],
+  clientBaseUrl: "https://api.example.com",
+});
+```
+
+Listed origins get CORS headers with credentials, so cookies (and an `authorize`
+based on them) work; the client always sends `credentials: "include"`. Cookies
+still need `SameSite=None; Secure` to be sent cross-site. Unlisted origins get no
+CORS headers, so browsers block them.
 
 ## Streams
 
@@ -184,6 +201,7 @@ own `/gold_*` routes; add `express.json()` yourself for other routes.
 | `dev` | `boolean` | `false` | Mount januse on `frontend/` + watch backend for `tsx watch` |
 | `watchBackend` | `boolean` | `false` | Watch `backend/**/*.ts` and exit(0); implied by `dev` |
 | `clientBaseUrl` | `string` | `""` | Prefix for generated `fetch` URLs (same-origin by default) |
+| `corsOrigins` | `string[]` | none | Exact origins allowed to call `/gold_*` from a browser, with credentials |
 | `generatedClientPath` | `string` | `frontend/client.js` | JS client path (`.d.ts` written beside it) |
 | `frontendDir` | `string` | `frontend/` | Served when not in `dev` (after a one-shot janus sync) |
 | `authorize` | `(req, method) => boolean \| Promise<boolean>` | allow all | Runs before every call and stream; `false` gives 403 |
@@ -205,7 +223,9 @@ npm test        # tests only
 ```
 
 Tests live in `test/`; `test/fixtures/` holds small apps that `gild` is started
-against on a free port.
+against on a free port. The cross-origin behaviour was checked once in Chromium,
+Firefox and WebKit (Playwright image from janus-elements); that check is not part
+of `npm run check`.
 
 | Source | Concern |
 |---|---|
@@ -215,6 +235,7 @@ against on a free port.
 | `src/routes.ts` | `/gold_request` and `/gold_sse`: admission, calls, streams |
 | `src/payload.ts` | Reading JSON or multipart bodies into arguments |
 | `src/multipart.ts` | Streaming multipart parser and temp files |
+| `src/cors.ts` | CORS for `corsOrigins` |
 | `src/callContext.ts` | `requestSignal()`, `nextEvent()` |
 | `src/errors.ts` | `ApiError` and error responses |
 | `src/clientGeneration.ts` | Writes `client.js` and `client.d.ts` |

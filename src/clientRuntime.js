@@ -14,7 +14,7 @@ async function _error(response) {
 async function _call(method, body) {
   const headers = { "X-Gold-Method": method };
   if (!(body instanceof FormData)) headers["Content-Type"] = "application/json";
-  const response = await fetch(_base + "/gold_request", { method: "POST", headers, body });
+  const response = await fetch(_base + "/gold_request", { method: "POST", headers, body, credentials: "include" });
   if (!response.ok) throw await _error(response);
   const text = await response.text();
   return text ? JSON.parse(text) : undefined;
@@ -49,6 +49,7 @@ function _stream(method, args, callback, onError) {
         headers: { "Content-Type": "application/json", "X-Gold-Method": method },
         body: JSON.stringify(args),
         signal: controller.signal,
+        credentials: "include",
       });
       if (!response.ok || !response.body) {
         reconnect = response.status >= 500;

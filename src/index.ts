@@ -4,6 +4,7 @@ import type { AddressInfo } from "net";
 import * as os from "os";
 import * as path from "path";
 import { clientDtsPath, clientJsPath, generateClient, normalizeClientBaseUrl } from "./clientGeneration";
+import { checkCorsOrigins, corsForOrigins } from "./cors";
 import { discoverApi } from "./discovery";
 import { mountDevFrontend, mountStaticFrontend, setupDevMode } from "./frontend";
 import type { MultipartLimits } from "./multipart";
@@ -35,9 +36,15 @@ export interface GildOptions {
   watchBackend?: boolean;
   /**
    * Prefix baked into generated client fetch URLs. Default: "" (same-origin).
-   * Rare dual-process setups can set an absolute API origin.
+   * For a frontend on another origin, set the API origin here and list the
+   * frontend's origin in `corsOrigins` on the API server.
    */
   clientBaseUrl?: string;
+  /**
+   * Exact origins (e.g. "https://app.example.com") allowed to call `/gold_*` from a
+   * browser, with credentials. Default: none (same-origin only)
+   */
+  corsOrigins?: string[];
   /**
    * Path of the generated JS client (a matching `.d.ts` is written beside it).
    * Default: frontend/client.js
@@ -77,7 +84,8 @@ function listen(app: Express, port: number, onReady: (server: Server) => void): 
 
 /** Registers `/gold_*`, writes the client, and resolves to the listening server. */
 export default async function gild(app: Express, options: GildOptions = {}): Promise<Server> {
-  const { port = 3000, dev = false, watchBackend = false, authorize } = options;
+  const { port = 3000, dev = false, watchBackend = false, authorize, corsOrigins = [] } = options;
+  checkCorsOrigins(corsOrigins);
   const generatedClientPath = options.generatedClientPath ?? path.resolve(process.cwd(), "frontend/client.js");
   const frontendDir = options.frontendDir ?? path.resolve(process.cwd(), "frontend");
   const clientBaseUrl = normalizeClientBaseUrl(options.clientBaseUrl ?? "");
@@ -89,6 +97,7 @@ export default async function gild(app: Express, options: GildOptions = {}): Pro
   const jsonParser = express.json({ limit: options.maxJsonBytes ?? DEFAULT_MAX_JSON_BYTES });
 
   const api = await discoverApi();
+  if (corsOrigins.length > 0) app.use(["/gold_request", "/gold_sse"], corsForOrigins(corsOrigins));
   if (api.requestDispatch.size > 0) registerRequestRoute(app, api.requestDispatch, jsonParser, limits, authorize);
   if (api.sseDispatch.size > 0) {
     const heartbeatMs = options.streamHeartbeatMs ?? DEFAULT_STREAM_HEARTBEAT_MS;

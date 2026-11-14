@@ -149,3 +149,64 @@ describe("request options", () => {
     }
   });
 });
+
+describe("cross-origin clients", () => {
+  const allowed = "http://app.example.test";
+  let app: RunningFixture;
+  before(async () => {
+    app = await startFixture("basic", { corsOrigins: [allowed] });
+  });
+  after(() => app.close());
+
+  for (const route of ["/gold_request", "/gold_sse"]) {
+    test(`a preflight to ${route} from a listed origin is answered`, async () => {
+      const response = await fetch(`${app.url}${route}`, {
+        method: "OPTIONS",
+        headers: {
+          Origin: allowed,
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "content-type,x-gold-method",
+        },
+      });
+      assert.equal(response.status, 204);
+      assert.equal(response.headers.get("access-control-allow-origin"), allowed);
+      assert.equal(response.headers.get("access-control-allow-credentials"), "true");
+      assert.match(response.headers.get("access-control-allow-headers") ?? "", /X-Gold-Method/i);
+      assert.match(response.headers.get("access-control-allow-methods") ?? "", /POST/);
+      assert.match(response.headers.get("vary") ?? "", /Origin/);
+    });
+  }
+
+  test("responses to a listed origin carry its CORS headers", async () => {
+    const response = await call(app.url, "Items.textLength", { text: "abc" }, { Origin: allowed });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("access-control-allow-origin"), allowed);
+    assert.equal(response.headers.get("access-control-allow-credentials"), "true");
+  });
+
+  test("an unlisted origin gets no CORS headers", async () => {
+    const preflight = await fetch(`${app.url}/gold_request`, {
+      method: "OPTIONS",
+      headers: { Origin: "http://evil.example.test", "Access-Control-Request-Method": "POST" },
+    });
+    assert.equal(preflight.headers.get("access-control-allow-origin"), null);
+    const response = await call(app.url, "Items.textLength", { text: "abc" }, { Origin: "http://evil.example.test" });
+    assert.equal(response.headers.get("access-control-allow-origin"), null);
+  });
+
+  test("without corsOrigins no origin gets CORS headers", async () => {
+    const plain = await startFixture("basic");
+    try {
+      const response = await call(plain.url, "Items.textLength", { text: "abc" }, { Origin: allowed });
+      assert.equal(response.headers.get("access-control-allow-origin"), null);
+    } finally {
+      await plain.close();
+    }
+  });
+});
+
+test("corsOrigins entries that are not exact origins fail startup", async () => {
+  for (const origin of ["*", "https://app.example.test/", "app.example.test"]) {
+    await assert.rejects(startFixture("basic", { corsOrigins: [origin] }), /exact origin/);
+  }
+});
