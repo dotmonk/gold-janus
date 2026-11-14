@@ -82,7 +82,8 @@ function writeEvent(res: Response, event: string | null, data: unknown): void {
 async function pipeStream(
   res: Response,
   start: () => AsyncGenerator<unknown>,
-  methodKey: string
+  methodKey: string,
+  heartbeatMs: number
 ): Promise<void> {
   const controller = abortOnDisconnect(res);
   if (controller.signal.aborted) return;
@@ -90,6 +91,7 @@ async function pipeStream(
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), heartbeatMs);
 
   const closed = new Promise<typeof STREAM_CLOSED>((resolve) => {
     controller.signal.addEventListener("abort", () => resolve(STREAM_CLOSED), { once: true });
@@ -117,6 +119,7 @@ async function pipeStream(
       const { status, message } = errorResponse(error, methodKey);
       writeEvent(res, "error", { error: message, status });
     } finally {
+      clearInterval(heartbeat);
       res.end();
     }
   });
@@ -126,7 +129,8 @@ export function registerSSERoute(
   app: Express,
   dispatch: Map<string, DispatchEntry<StreamHandlerFn>>,
   jsonParser: RequestHandler,
-  authorize: Authorize | undefined
+  authorize: Authorize | undefined,
+  heartbeatMs: number
 ): void {
   app.post("/gold_sse", async (req, res) => {
     const methodKey = req.get(METHOD_HEADER) ?? "";
@@ -134,7 +138,7 @@ export function registerSSERoute(
       const entry = await admitCall(req, res, dispatch, authorize);
       if (!entry) return;
       const args = buildArguments(entry.route, await readJsonPayload(req, res, jsonParser));
-      await pipeStream(res, () => entry.handler(...args), methodKey);
+      await pipeStream(res, () => entry.handler(...args), methodKey, heartbeatMs);
     } catch (error: unknown) {
       if (res.headersSent) return;
       const { status, message } = errorResponse(error, methodKey);

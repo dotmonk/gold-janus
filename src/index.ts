@@ -17,6 +17,7 @@ const DEFAULT_MAX_MULTIPART_BYTES = 100 * 1024 * 1024;
 const DEFAULT_MAX_MULTIPART_FIELD_BYTES = 1024 * 1024;
 const DEFAULT_MAX_JSON_BYTES = 1024 * 1024;
 const DEFAULT_MULTIPART_TMP_DIR = path.join(os.tmpdir(), "gold-uploads");
+const DEFAULT_STREAM_HEARTBEAT_MS = 15_000;
 
 export interface GildOptions {
   /** Port to listen on. Default: 3000 */
@@ -57,6 +58,8 @@ export interface GildOptions {
   maxMultipartFieldBytes?: number;
   /** Directory to write uploaded temp files to. Default: OS temp dir */
   multipartTmpDir?: string;
+  /** Interval of the keep-alive comment on open streams, in ms. Default: 15000 */
+  streamHeartbeatMs?: number;
 }
 
 function listen(app: Express, port: number, onReady: (server: Server) => void): Promise<Server> {
@@ -87,7 +90,10 @@ export default async function gild(app: Express, options: GildOptions = {}): Pro
 
   const api = await discoverApi();
   if (api.requestDispatch.size > 0) registerRequestRoute(app, api.requestDispatch, jsonParser, limits, authorize);
-  if (api.sseDispatch.size > 0) registerSSERoute(app, api.sseDispatch, jsonParser, authorize);
+  if (api.sseDispatch.size > 0) {
+    const heartbeatMs = options.streamHeartbeatMs ?? DEFAULT_STREAM_HEARTBEAT_MS;
+    registerSSERoute(app, api.sseDispatch, jsonParser, authorize, heartbeatMs);
+  }
   console.log(`✅ Gild: Registered ${api.routes.length} routes`);
   await generateClient(api.routes, api.typeDeclarations, generatedClientPath, clientBaseUrl);
 

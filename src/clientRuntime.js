@@ -71,7 +71,8 @@ function _stream(method, args, callback, onError) {
             if (line.startsWith("event: ")) event = line.slice(7);
             else if (line.startsWith("data: ")) data += line.slice(6);
           }
-          const payload = data ? JSON.parse(data) : undefined;
+          if (!data) continue;
+          const payload = JSON.parse(data);
           if (event === "end") {
             reconnect = false;
           } else if (event === "error") {

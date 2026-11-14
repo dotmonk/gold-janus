@@ -198,3 +198,27 @@ describe("streams and slow authorization", () => {
     }
   });
 });
+
+describe("stream heartbeat", () => {
+  test("an idle stream gets heartbeat comments that the client ignores", async () => {
+    const app = await startFixture("basic", { streamHeartbeatMs: 50 });
+    try {
+      const controller = new AbortController();
+      const response = await openStream(app.url, "Streams.waitUntilDisconnect", {}, controller.signal);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let raw = "";
+      while ((raw.match(/^: ping$/gm) ?? []).length < 2) raw += decoder.decode((await reader.read()).value, { stream: true });
+      controller.abort();
+
+      const received: unknown[] = [];
+      const client = await loadClient(app.clientPath);
+      const stop = client.Streams.waitUntilDisconnect((data: unknown) => received.push(data)) as () => void;
+      await sleep(300);
+      stop();
+      assert.deepEqual(received, ["ready"]);
+    } finally {
+      await app.close();
+    }
+  });
+});

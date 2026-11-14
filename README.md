@@ -134,6 +134,8 @@ Async generators become server-sent event streams.
   backoff from 1 s up to 30 s and calls `onError`.
 - An error thrown in the generator reaches `onError` with its message and status;
   4xx errors and 4xx responses stop reconnecting.
+- Open streams get a `: ping` comment every 15 s (`streamHeartbeatMs`) so proxies
+  do not close them as idle; the client ignores it.
 - Wait for changes with `nextEvent(target, type)`. When the client disconnects
   the wait rejects, so the generator stops at once instead of waiting for the next
   event:
@@ -189,6 +191,7 @@ own `/gold_*` routes; add `express.json()` yourself for other routes.
 | `maxMultipartBytes` | `number` | 100 MB | Max multipart body |
 | `maxMultipartFieldBytes` | `number` | 1 MB | Max non-file field |
 | `multipartTmpDir` | `string` | OS temp | Upload temp directory |
+| `streamHeartbeatMs` | `number` | 15000 | Interval of the keep-alive comment on open streams |
 
 Exports: `gild` (default), `ApiError`, `nextEvent`, `requestSignal`, and the types
 `GildOptions` and `UploadedFile`.
