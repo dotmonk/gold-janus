@@ -247,4 +247,4 @@ of `npm run check`.
 ## Example
 
 [`gold-janus-example`](https://github.com/dotmonk/gold-janus-example) — live
-clock, users CRUD over SSE, chat with image upload, Janus Sunset theme.
+clock, users CRUD over SSE, chat with image upload, a gold Janus theme.
