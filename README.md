@@ -11,7 +11,7 @@ Zero decorators, zero codegen CLI. Define functions — get a client.
 
 ```sh
 npm install github:dotmonk/gold-janus
-npm install github:dotmonk/janus-elements#9cabe2e1a4be07c1515fbabd58d4c9431e088016
+npm install github:dotmonk/janus-elements#09fb3f33aaf4b713635a4c2124282fb121c49157
 ```
 
 > Requires [`tsx`](https://github.com/privatenumber/tsx) to run TypeScript

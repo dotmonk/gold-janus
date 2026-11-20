@@ -10,6 +10,36 @@ _(none)_
 
 ## Done
 
+### Phase: Bump janus-elements peer pin — Done (2026-11-20)
+
+**Goal:** Point the optional `janus-elements` peer (and README install line) at the
+latest published commit so consumers get current januse/UI fixes.
+
+**Steps:**
+- [x] Baseline `npm run check`
+- [x] Update `package.json` peer pin and README install SHA to HEAD
+- [x] Refresh `package-lock.json` peer entry; re-run `npm run check`
+- [x] Close out in PLAN
+
+**Done when:**
+1. Peer and docs pin the same janus-elements commit as GitHub HEAD at bump time.
+2. `npm run check` passes (suite does not install the peer; pin is documentation +
+   peer resolution for consumers).
+
+**Decisions:**
+- Keep GitHub commit pinning (not a semver range); bump SHA only.
+- No gold-janus code changes: `createJanuseDev` / `janus-elements/januse` /
+  sync paths unchanged on HEAD.
+
+**Validation:**
+- Before: `npm run check` — tsc clean; 64 tests pass (~9 s).
+- After pin to `09fb3f33aaf4b713635a4c2124282fb121c49157`: same, 64 pass (~9 s).
+
+**Hardening findings:** none (pin-only).
+
+**Limitations:** Suite still does not install or exercise the peer; consumers must
+reinstall to pick up the new SHA.
+
 ### Phase: Readable modules, return checks, CORS, heartbeat, local dev — Done (2026-11-14)
 
 **Goal:** From the second review: split `src/index.ts` by concept (10.1), check return
